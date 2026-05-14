@@ -20,7 +20,7 @@ html, body, #root {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background: #000;
+  background: #0a0a14;
   color: var(--text);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 13px;
@@ -28,11 +28,37 @@ html, body, #root {
   justify-content: flex-end;
 }
 
+/* Faint "page" background so the sidebar looks inset */
+#root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 28px,
+      rgba(255,255,255,0.015) 28px,
+      rgba(255,255,255,0.015) 29px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 48px,
+      rgba(255,255,255,0.015) 48px,
+      rgba(255,255,255,0.015) 49px
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
 #app {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  width: 100%;
+  width: 360px;
+  min-width: 280px;
+  max-width: 100%;
   position: relative;
   background: var(--bg);
   overflow: hidden;
@@ -40,6 +66,7 @@ html, body, #root {
   box-shadow: -4px 0 32px rgba(124, 58, 237, 0.15);
   transform: translateX(100%);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
 }
 
 #app.visible { transform: translateX(0); }
