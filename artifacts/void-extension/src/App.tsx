@@ -442,21 +442,66 @@ export default function App() {
         </div>
       </div>
 
-      <div id="chat-area" ref={chatAreaRef} style={pipActive ? { visibility: "hidden" } : {}}>
-        {messages.length === 0 && !isTyping && (
-          <div className="empty-state">
-            <svg className="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
-            <span className="empty-text">Awaiting input in the void...</span>
+      {pipActive ? (
+        <div
+          id="pip-companion"
+          className={dropActive ? "pip-drop-active" : ""}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <div className="pip-companion-inner">
+            <div className="pip-companion-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
+            </div>
+            <div className="pip-companion-title">Drop files here</div>
+            <div className="pip-companion-sub">or click to choose files</div>
+            {attachedFiles.length > 0 && (
+              <div className="pip-companion-files">
+                {attachedFiles.map((f, i) => (
+                  <div key={i} className="pip-companion-file" onClick={e => e.stopPropagation()}>
+                    {f.type.startsWith("image/")
+                      ? <img className="pip-companion-thumb" src={f.dataUrl} alt={f.name} />
+                      : <div className="pip-companion-ext">{fileExtLabel(f.name)}</div>
+                    }
+                    <span className="pip-companion-name">{f.name}</span>
+                    <button className="file-pill-remove" onClick={e => { e.stopPropagation(); setAttachedFiles(prev => prev.filter((_, j) => j !== i)); }}>&times;</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {attachedFiles.length > 0 && (
+              <div className="pip-companion-badge">{attachedFiles.length} file{attachedFiles.length > 1 ? "s" : ""} queued — type in floating window &amp; press Enter to send</div>
+            )}
+            <div className="pip-companion-hint">Chat is live in the floating window<br/>Ctrl+Shift+L also opens file picker</div>
           </div>
-        )}
-        {messages.map(msg => <MessageBubble key={msg.id} msg={msg} />)}
-        {isTyping && <TypingIndicator />}
-      </div>
+        </div>
+      ) : (
+        <div id="chat-area" ref={chatAreaRef}>
+          {messages.length === 0 && !isTyping && (
+            <div className="empty-state">
+              <svg className="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              <span className="empty-text">Awaiting input in the void...</span>
+            </div>
+          )}
+          {messages.map(msg => <MessageBubble key={msg.id} msg={msg} />)}
+          {isTyping && <TypingIndicator />}
+        </div>
+      )}
 
-      {suggestions.length > 0 && (
-        <div id="suggestions" style={pipActive ? { visibility: "hidden" } : {}}>
+      {/* hidden chat-area ref target for pip refresh — keep in DOM but invisible */}
+      {pipActive && <div id="chat-area" ref={chatAreaRef} style={{ display: "none" }}>
+        {messages.map(msg => <MessageBubble key={msg.id} msg={msg} />)}
+      </div>}
+
+      {suggestions.length > 0 && !pipActive && (
+        <div id="suggestions">
           {suggestions.map((s, i) => (
             <button key={i} className="suggestion-chip" onClick={() => { setInputValue(s.text); textareaRef.current?.focus(); }}>
               <span className="chip-icon">{icons[s.category] || "*"}</span>{s.text}

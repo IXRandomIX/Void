@@ -526,6 +526,131 @@ html, body, #root {
   font-family: 'Courier New', monospace;
 }
 
+/* PiP companion file drop panel */
+#pip-companion {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px;
+  cursor: pointer;
+  border: 2px dashed rgba(124, 58, 237, 0.2);
+  border-radius: 12px;
+  margin: 12px;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+  z-index: 5;
+}
+
+#pip-companion:hover,
+#pip-companion.pip-drop-active {
+  border-color: rgba(124, 58, 237, 0.6);
+  background: rgba(124, 58, 237, 0.07);
+}
+
+.pip-companion-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  width: 100%;
+}
+
+.pip-companion-icon {
+  color: rgba(124, 58, 237, 0.5);
+  animation: pip-float 3s ease-in-out infinite;
+}
+
+@keyframes pip-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.pip-companion-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.pip-companion-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.pip-companion-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 4px;
+  width: 100%;
+}
+
+.pip-companion-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px 5px 6px;
+  background: rgba(124, 58, 237, 0.15);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+  max-width: 180px;
+  cursor: default;
+}
+
+.pip-companion-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.pip-companion-ext {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: rgba(124, 58, 237, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: var(--accent);
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.pip-companion-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.pip-companion-badge {
+  font-size: 11px;
+  color: #a78bfa;
+  background: rgba(124, 58, 237, 0.12);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  border-radius: 20px;
+  padding: 5px 12px;
+  margin-top: 2px;
+}
+
+.pip-companion-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-family: 'Courier New', monospace;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+
 /* Drop overlay */
 #drop-overlay {
   display: none;
