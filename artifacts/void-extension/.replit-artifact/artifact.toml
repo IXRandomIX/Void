@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Void Extension"
+version = "1.0.0"
+id = "artifacts/void-extension"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20696
+
+[services.development]
+run = "pnpm --filter @workspace/void-extension run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/void-extension", "run", "build" ]
+publicDir = "artifacts/void-extension/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20696"
+BASE_PATH = "/"
