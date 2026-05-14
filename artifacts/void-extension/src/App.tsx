@@ -114,6 +114,7 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [suggestions, setSuggestions] = useState<{ text: string; category: string }[]>([]);
@@ -389,6 +390,17 @@ export default function App() {
     if (pipActive) setTimeout(() => pipRefreshFromDom(), 50);
   }, [messages, pipActive]);
 
+  // Sidebar toggle shortcut: Alt+Ctrl+Shift+G
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.altKey && e.ctrlKey && e.shiftKey && (e.key === "G" || e.key === "g")) {
+        setSidebarVisible(v => !v);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
   // Drag and drop
   const handleDragEnter = (e: React.DragEvent) => { e.preventDefault(); dragCounter.current++; setDropActive(true); };
   const handleDragLeave = () => { dragCounter.current--; if (dragCounter.current <= 0) { dragCounter.current = 0; setDropActive(false); } };
@@ -403,7 +415,7 @@ export default function App() {
   return (
     <div
       id="app"
-      className="visible"
+      className={sidebarVisible ? "visible" : ""}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
