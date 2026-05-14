@@ -494,12 +494,9 @@ export default function App() {
       }
     }
 
-    // Fallback: legacy video PiP (read-only, no file picker)
-    if (!document.pictureInPictureEnabled) {
-      alert("Picture-in-Picture is not supported in this browser. Try Chrome 116+.");
-      return;
-    }
-    alert("Your browser supports only the older PiP mode. For file attachment in PiP, please use Chrome 116 or newer.");
+    // Fallback: Document PiP unavailable (e.g. inside iframe or older browser)
+    // Activate companion-panel mode so the user can still attach files from the main window
+    setPipActive(true);
   }
 
   // Sidebar toggle shortcut: Alt+Ctrl+Shift+G
