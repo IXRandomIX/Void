@@ -3,13 +3,28 @@
   "name": "Void AI",
   "version": "2.0",
   "description": "AI assistant sidebar — follows you across every Chrome tab",
-  "permissions": ["sidePanel", "tabs", "activeTab"],
+  "permissions": ["sidePanel", "tabs", "activeTab", "storage", "scripting"],
+  "host_permissions": ["<all_urls>"],
   "side_panel": {
     "default_path": "sidepanel.html"
   },
   "background": {
     "service_worker": "background.js"
   },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["content.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "action": {
     "default_title": "Open Void",
     "default_icon": {

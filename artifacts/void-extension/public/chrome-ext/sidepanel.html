@@ -68,7 +68,9 @@
   <button class="setup-btn" onclick="connect()">Connect Void →</button>
   <p class="setup-hint">
     Deploy your Void app on Replit, then paste the published URL above.<br/>
-    The URL looks like <code style="color:#7c3aed">yourapp.replit.app</code>
+    The URL looks like <code style="color:#7c3aed">yourapp.replit.app</code><br/><br/>
+    Once connected, a <strong style="color:#7c3aed">✦ purple bubble</strong> will appear
+    on every page you visit — click it to open Void anywhere.
   </p>
 </div>
 
@@ -82,15 +84,20 @@
 <script>
   const STORAGE_KEY = "void-app-url";
 
-  // Restore saved URL
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) loadVoid(saved);
+  // Restore saved URL from both localStorage and chrome.storage
+  chrome.storage.local.get(['voidUrl'], (data) => {
+    if (data.voidUrl) {
+      document.getElementById('url-input').value = data.voidUrl;
+      loadVoid(data.voidUrl);
+    }
+  });
 
   function connect() {
     const raw = document.getElementById("url-input").value.trim();
     if (!raw) return;
     const url = raw.endsWith("/") ? raw.slice(0, -1) : raw;
-    localStorage.setItem(STORAGE_KEY, url);
+    // Save to chrome.storage.local so the content script can read it
+    chrome.storage.local.set({ voidUrl: url, voidOpen: true });
     loadVoid(url);
   }
 
@@ -109,7 +116,7 @@
     frame.src = url;
   }
 
-  // Forward active tab URL to the Void iframe so the context bar stays live
+  // Forward active tab URL to the Void iframe so context bar stays live
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.type === "TAB_URL") {
       const frame = document.getElementById("frame");
@@ -121,7 +128,6 @@
     }
   });
 
-  // Enter key submits
   document.getElementById("url-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") connect();
   });

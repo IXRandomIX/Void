@@ -511,18 +511,20 @@ export default function App() {
               <div className="settings-hint" style={{ marginBottom: "12px", lineHeight: 1.7 }}>
                 <strong style={{ color: "#94a3b8" }}>How to install:</strong><br />
                 1. Deploy this app to get a live URL<br />
-                2. Download the 3 files below<br />
+                2. Download all 4 files below into one folder<br />
                 3. Go to <code style={{ color: "#a78bfa", fontSize: "10px" }}>chrome://extensions</code><br />
                 4. Enable <strong style={{ color: "#94a3b8" }}>Developer mode</strong><br />
-                5. Click <strong style={{ color: "#94a3b8" }}>Load unpacked</strong> → select folder<br />
-                6. Click the Void icon → enter your live URL
+                5. Click <strong style={{ color: "#94a3b8" }}>Load unpacked</strong> → select that folder<br />
+                6. Click the Void icon → enter your live URL<br />
+                7. A <strong style={{ color: "#a78bfa" }}>✦ purple bubble</strong> appears on every page
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block" }} href="/chrome-ext/manifest.json" download="manifest.json">↓ manifest.json</a>
                 <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block", background: "rgba(124,58,237,0.3)" }} href="/chrome-ext/background.js" download="background.js">↓ background.js</a>
+                <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block", background: "rgba(124,58,237,0.3)" }} href="/chrome-ext/content.js" download="content.js">↓ content.js</a>
                 <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block", background: "rgba(124,58,237,0.3)" }} href="/chrome-ext/sidepanel.html" download="sidepanel.html">↓ sidepanel.html</a>
               </div>
-              <div className="settings-hint" style={{ marginTop: "8px" }}>Put all 3 files in one folder, then load as unpacked extension.</div>
+              <div className="settings-hint" style={{ marginTop: "8px" }}>Put all 4 files in one folder, then load as unpacked extension.</div>
             </div>
             <button className="settings-save-btn" onClick={() => setShowSettings(false)} style={{ marginTop: "8px" }}>Close</button>
             <span className="settings-close" onClick={() => setShowSettings(false)}>Close settings</span>

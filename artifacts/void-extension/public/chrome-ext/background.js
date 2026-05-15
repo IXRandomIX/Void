@@ -3,10 +3,12 @@ chrome.action.onClicked.addListener((tab) => {
   chrome.sidePanel.open({ tabId: tab.id });
 });
 
-// When a tab becomes active or navigates, forward the URL to the side panel
+// Forward active tab URL to both the sidepanel and injected content script
 function notifyUrl(tabId, url) {
   if (!url || url.startsWith("chrome://") || url.startsWith("chrome-extension://")) return;
-  chrome.runtime.sendMessage({ type: "TAB_URL", url, tabId }).catch(() => {});
+  const msg = { type: "TAB_URL", url, tabId };
+  chrome.runtime.sendMessage(msg).catch(() => {});
+  chrome.tabs.sendMessage(tabId, msg).catch(() => {});
 }
 
 chrome.tabs.onActivated.addListener(({ tabId }) => {
