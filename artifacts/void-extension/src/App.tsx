@@ -233,6 +233,7 @@ function TypingIndicator() {
 
 export default function App() {
   const apiBase = window.location.origin;
+  const [liveUrl, setLiveUrl] = useState(window.location.host);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -499,11 +500,25 @@ export default function App() {
     setPipActive(true);
   }
 
-  // Sidebar toggle shortcut: Alt+Ctrl+Shift+G
+  // Track live URL changes
+  useEffect(() => {
+    const update = () => setLiveUrl(window.location.host);
+    window.addEventListener("popstate", update);
+    window.addEventListener("hashchange", update);
+    return () => { window.removeEventListener("popstate", update); window.removeEventListener("hashchange", update); };
+  }, []);
+
+  // Global shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Alt+Ctrl+Shift+G — toggle sidebar
       if (e.altKey && e.ctrlKey && e.shiftKey && (e.key === "G" || e.key === "g")) {
         setSidebarVisible(v => !v);
+      }
+      // Ctrl+Shift+L — open file picker (works any time)
+      if (e.ctrlKey && e.shiftKey && (e.key === "L" || e.key === "l") && !e.altKey) {
+        e.preventDefault();
+        fileInputRef.current?.click();
       }
     };
     document.addEventListener("keydown", handler);
@@ -559,7 +574,7 @@ export default function App() {
       <div id="context-bar">
         <div className="context-pill">
           <div className="context-dot" />
-          <span className="context-url">void.preview</span>
+          <span className="context-url">{liveUrl}</span>
         </div>
       </div>
 
