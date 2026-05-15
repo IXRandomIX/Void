@@ -52,6 +52,37 @@ function readFileAsBase64(file: File): Promise<AttachedFile> {
   });
 }
 
+// ── Edge trigger — hover the right edge for 2s to reveal the toggle button ──
+function EdgeTrigger({ onClick, panelOpen }: { onClick: () => void; panelOpen: boolean }) {
+  const [revealed, setRevealed] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function onEnter() {
+    timerRef.current = setTimeout(() => setRevealed(true), 2000);
+  }
+  function onLeave() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    setRevealed(false);
+  }
+
+  return (
+    <div
+      className="edge-trigger-zone"
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+    >
+      <button
+        className={`edge-trigger-btn${revealed ? " edge-trigger-btn--visible" : ""}`}
+        onClick={onClick}
+        title={panelOpen ? "Hide Void (Alt+Ctrl+Shift+G)" : "Show Void (Alt+Ctrl+Shift+G)"}
+      >
+        <span className="edge-trigger-logo">✦</span>
+      </button>
+    </div>
+  );
+}
+
 function Starfield() {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -428,6 +459,9 @@ export default function App() {
         />,
         pipMount
       )}
+
+      {/* ── Edge trigger ─────────────────────────────────────────────── */}
+      <EdgeTrigger onClick={() => setSidebarVisible(v => !v)} panelOpen={sidebarVisible} />
 
       {/* ── Main sidebar ─────────────────────────────────────────────── */}
       <div

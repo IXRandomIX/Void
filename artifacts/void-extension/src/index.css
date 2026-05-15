@@ -920,3 +920,60 @@ html, body, #root {
 
 /* PiP button active state */
 #pip-btn.active { color: #a78bfa; background: rgba(124,58,237,0.15); }
+
+/* ── Edge trigger ──────────────────────────────────────────────────────── */
+.edge-trigger-zone {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 100vh;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: all;
+}
+
+.edge-trigger-btn {
+  position: relative;
+  right: -56px;
+  width: 40px;
+  height: 40px;
+  border-radius: 20px 0 0 20px;
+  border: 1px solid rgba(124, 58, 237, 0.45);
+  border-right: none;
+  background: rgba(10, 4, 20, 0.92);
+  backdrop-filter: blur(12px);
+  color: #a78bfa;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: right 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 0.2s ease,
+              box-shadow 0.2s ease;
+  box-shadow: -2px 0 16px rgba(124, 58, 237, 0.0);
+  padding: 0;
+  outline: none;
+}
+
+.edge-trigger-btn--visible {
+  right: 0;
+  box-shadow: -2px 0 20px rgba(124, 58, 237, 0.35);
+}
+
+.edge-trigger-btn--visible:hover {
+  background: rgba(124, 58, 237, 0.25);
+  box-shadow: -2px 0 28px rgba(124, 58, 237, 0.55);
+}
+
+.edge-trigger-btn--visible:active {
+  background: rgba(124, 58, 237, 0.4);
+}
+
+.edge-trigger-logo {
+  line-height: 1;
+  user-select: none;
+}
