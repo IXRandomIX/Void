@@ -71,6 +71,75 @@ html, body, #root {
 
 #app.visible { transform: translateX(0); }
 
+/* Standalone mode: Void opened directly in its own browser tab */
+#app.standalone {
+  width: 100%;
+  max-width: 480px;
+  border-left: none;
+  border-right: none;
+  box-shadow: none;
+  transform: none !important;
+  margin: 0 auto;
+}
+
+/* Live URL bar shown in standalone mode */
+#live-url-bar {
+  padding: 6px 14px;
+  background: rgba(124, 58, 237, 0.07);
+  border-bottom: 1px solid rgba(124, 58, 237, 0.12);
+  flex-shrink: 0;
+}
+
+.live-url-inner {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+}
+
+.live-url-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 5px #22c55e;
+  flex-shrink: 0;
+}
+
+.live-url-label {
+  color: var(--text-muted);
+  font-family: 'Courier New', monospace;
+}
+
+.live-url-text {
+  color: #a78bfa;
+  font-family: 'Courier New', monospace;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-url-copy {
+  background: rgba(124, 58, 237, 0.2);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: 4px;
+  color: #a78bfa;
+  font-size: 10px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.live-url-copy:hover { background: rgba(124, 58, 237, 0.35); }
+
+/* New-tab button highlight */
+#newtab-btn:hover {
+  color: #a78bfa;
+  background: rgba(124, 58, 237, 0.15);
+}
+
 #starfield { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
 
 .star {

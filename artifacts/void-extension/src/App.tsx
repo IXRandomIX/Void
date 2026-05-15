@@ -109,6 +109,10 @@ function TypingIndicator() {
 
 export default function App() {
   const apiBase = window.location.origin;
+
+  // True when Void is opened directly in a browser tab (not inside the Replit workspace iframe)
+  const isStandalone = window.self === window.top;
+
   const [liveUrl, setLiveUrl] = useState(window.location.host);
   const [tabUrl, setTabUrl] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -120,17 +124,7 @@ export default function App() {
   const [suggestions, setSuggestions] = useState<{ text: string; category: string }[]>([]);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [dropActive, setDropActive] = useState(false);
-
-  // Floating panel state
-  const [floatOpen, setFloatOpen] = useState(false);
-  const [floatPos, setFloatPos] = useState<{ x: number; y: number } | null>(null);
-  const [floatInput, setFloatInput] = useState("");
-  const floatRef = useRef<HTMLDivElement>(null);
-  const floatMessagesRef = useRef<HTMLDivElement>(null);
-  const floatTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const floatFileInputRef = useRef<HTMLInputElement>(null);
-  const isDragging = useRef(false);
-  const dragOffset = useRef({ x: 0, y: 0 });
+  const [urlCopied, setUrlCopied] = useState(false);
 
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -139,7 +133,6 @@ export default function App() {
 
   const scrollToBottom = useCallback(() => {
     if (chatAreaRef.current) chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
-    if (floatMessagesRef.current) floatMessagesRef.current.scrollTop = floatMessagesRef.current.scrollHeight;
   }, []);
 
   useEffect(() => {
@@ -168,40 +161,16 @@ export default function App() {
     return () => window.removeEventListener("message", handler);
   }, []);
 
-  // Draggable float panel — mouse move/up listeners
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!isDragging.current) return;
-      const w = floatRef.current?.offsetWidth ?? 360;
-      const h = floatRef.current?.offsetHeight ?? 520;
-      setFloatPos({
-        x: Math.max(0, Math.min(window.innerWidth - w, e.clientX - dragOffset.current.x)),
-        y: Math.max(0, Math.min(window.innerHeight - h, e.clientY - dragOffset.current.y)),
-      });
-    };
-    const onUp = () => { isDragging.current = false; };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-    return () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
-  }, []);
-
-  function startDrag(e: React.MouseEvent) {
-    if (!floatPos) return;
-    isDragging.current = true;
-    dragOffset.current = { x: e.clientX - floatPos.x, y: e.clientY - floatPos.y };
-    e.preventDefault();
+  // Open Void at its live URL in a new browser tab
+  function openInNewTab() {
+    window.open(window.location.origin, "_blank", "noopener");
   }
 
-  function toggleFloat() {
-    if (floatOpen) {
-      setFloatOpen(false);
-    } else {
-      if (!floatPos) {
-        const w = 360;
-        setFloatPos({ x: Math.max(8, window.innerWidth - w - 24), y: 64 });
-      }
-      setFloatOpen(true);
-    }
+  function copyLiveUrl() {
+    navigator.clipboard.writeText(window.location.origin).then(() => {
+      setUrlCopied(true);
+      setTimeout(() => setUrlCopied(false), 2000);
+    });
   }
 
   async function addFiles(fileList: FileList | File[]) {
@@ -219,11 +188,9 @@ export default function App() {
     const filesToSend = [...attachedFiles];
     setAttachedFiles([]);
     setInputValue("");
-    setFloatInput("");
     setIsLoading(true);
     setIsTyping(true);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-    if (floatTextareaRef.current) floatTextareaRef.current.style.height = "auto";
     try {
       const res = await fetch(`${apiBase}/api/chat`, {
         method: "POST",
@@ -265,13 +232,12 @@ export default function App() {
       }
       if (e.ctrlKey && e.shiftKey && !e.altKey && (e.key === "L" || e.key === "l")) {
         e.preventDefault();
-        if (floatOpen) floatFileInputRef.current?.click();
-        else fileInputRef.current?.click();
+        fileInputRef.current?.click();
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [floatOpen]);
+  }, []);
 
   const handleDragEnter = (e: React.DragEvent) => { e.preventDefault(); dragCounter.current++; setDropActive(true); };
   const handleDragLeave = () => { dragCounter.current--; if (dragCounter.current <= 0) { dragCounter.current = 0; setDropActive(false); } };
@@ -283,254 +249,216 @@ export default function App() {
 
   const icons: Record<string, string> = { coding: ">_", analysis: "~", general: "*", writing: "//", math: "∑" };
 
+  // Build class list for #app
+  const appClass = [
+    sidebarVisible ? "visible" : "",
+    isStandalone ? "standalone" : "",
+  ].filter(Boolean).join(" ");
+
   return (
-    <>
-      {/* ── Draggable floating panel ─────────────────────────────── */}
-      {floatOpen && floatPos && (
-        <div
-          ref={floatRef}
-          id="float-panel"
-          style={{ left: floatPos.x, top: floatPos.y }}
-          onDragEnter={e => { e.preventDefault(); e.stopPropagation(); }}
-          onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
-          onDrop={e => { e.preventDefault(); e.stopPropagation(); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); }}
-        >
-          {/* drag handle header */}
-          <div id="float-header" onMouseDown={startDrag}>
-            <div className="float-dot" />
-            <span className="float-title">VOID</span>
-            <span className="float-url">{tabUrl ?? liveUrl}</span>
-            <button className="float-close" onClick={() => setFloatOpen(false)} onMouseDown={e => e.stopPropagation()}>×</button>
-          </div>
+    <div
+      id="app"
+      className={appClass}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      <Starfield />
 
-          {/* messages */}
-          <div id="float-messages" ref={floatMessagesRef}>
-            {messages.length === 0 && !isTyping && (
-              <div className="float-empty">Awaiting input in the void...</div>
-            )}
-            {messages.map(msg => <MessageBubble key={msg.id} msg={msg} />)}
-            {isTyping && <TypingIndicator />}
-          </div>
-
-          {/* attached file previews */}
-          {attachedFiles.length > 0 && (
-            <div id="float-previews">
-              {attachedFiles.map((f, i) => (
-                <div key={i} className="file-pill">
-                  {f.type.startsWith("image/")
-                    ? <img className="file-pill-thumb" src={f.dataUrl} alt={f.name} />
-                    : <div className="file-pill-icon">{fileExtLabel(f.name)}</div>}
-                  <span className="file-pill-name">{f.name}</span>
-                  <button className="file-pill-remove" onClick={() => setAttachedFiles(p => p.filter((_, j) => j !== i))}>&times;</button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* input row */}
-          <div id="float-input-row">
-            <input
-              ref={floatFileInputRef}
-              type="file" multiple accept="*/*"
-              style={{ display: "none" }}
-              onChange={e => { if (e.target.files?.length) { addFiles(e.target.files); e.target.value = ""; } }}
-            />
-            <button className="icon-btn" title="Attach file (Ctrl+Shift+L)" onClick={() => floatFileInputRef.current?.click()}>
+      <div id="header">
+        <div id="logo"><div className="logo-dot" />VOID</div>
+        <div className="header-actions">
+          <button className="icon-btn" title="Settings" onClick={() => setShowSettings(true)}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+          <button className="icon-btn" title="Clear history" onClick={clearHistory}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+          </button>
+          {/* Open in new tab — works from any other tab or page */}
+          {!isStandalone && (
+            <button
+              className="icon-btn"
+              id="newtab-btn"
+              title="Open Void in a new tab (keep it open across all your tabs)"
+              onClick={openInNewTab}
+            >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
               </svg>
             </button>
-            <textarea
-              ref={floatTextareaRef}
-              className="float-textarea"
-              placeholder="Message Void..."
-              rows={1}
-              value={floatInput}
-              onChange={e => {
-                setFloatInput(e.target.value);
-                e.target.style.height = "auto";
-                e.target.style.height = Math.min(e.target.scrollHeight, 90) + "px";
-              }}
-              onKeyDown={e => {
-                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(floatInput); }
-              }}
-            />
-            <button id="send-btn" onClick={() => sendMessage(floatInput)} disabled={isLoading}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="22" y1="2" x2="11" y2="13"/>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-              </svg>
+          )}
+        </div>
+      </div>
+
+      {/* Live URL banner — shown when opened in standalone tab */}
+      {isStandalone && (
+        <div id="live-url-bar">
+          <div className="live-url-inner">
+            <div className="live-url-dot" />
+            <span className="live-url-label">Live at</span>
+            <span className="live-url-text">{liveUrl}</span>
+            <button className="live-url-copy" onClick={copyLiveUrl} title="Copy URL">
+              {urlCopied ? "✓ Copied" : "Copy"}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Main sidebar ─────────────────────────────────────────── */}
-      <div
-        id="app"
-        className={sidebarVisible ? "visible" : ""}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-      >
-        <Starfield />
+      <div id="context-bar">
+        <div className="context-pill">
+          <div className={`context-dot${tabUrl ? " live" : ""}`} />
+          <span className="context-url">{tabUrl ?? liveUrl}</span>
+        </div>
+        {tabUrl && <span className="context-live-badge">LIVE</span>}
+      </div>
 
-        <div id="header">
-          <div id="logo"><div className="logo-dot" />VOID</div>
-          <div className="header-actions">
-            <button className="icon-btn" title="Settings" onClick={() => setShowSettings(true)}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
-            </button>
-            <button className="icon-btn" title="Clear history" onClick={clearHistory}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-              </svg>
-            </button>
-            <button
-              className={`icon-btn${floatOpen ? " active" : ""}`}
-              id="pip-btn"
-              title="Floating chat panel (drag anywhere)"
-              onClick={toggleFloat}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="2" y="3" width="20" height="14" rx="2"/>
-                <rect x="12" y="10" width="8" height="5" rx="1" fill="currentColor" stroke="none"/>
-              </svg>
-            </button>
+      <div id="chat-area" ref={chatAreaRef}>
+        {messages.length === 0 && !isTyping && (
+          <div className="empty-state">
+            <svg className="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            <span className="empty-text">Awaiting input in the void...</span>
           </div>
-        </div>
+        )}
+        {messages.map(msg => <MessageBubble key={msg.id} msg={msg} />)}
+        {isTyping && <TypingIndicator />}
+      </div>
 
-        <div id="context-bar">
-          <div className="context-pill">
-            <div className={`context-dot${tabUrl ? " live" : ""}`} />
-            <span className="context-url">{tabUrl ?? liveUrl}</span>
-          </div>
-          {tabUrl && <span className="context-live-badge">LIVE</span>}
+      {suggestions.length > 0 && (
+        <div id="suggestions">
+          {suggestions.map((s, i) => (
+            <button key={i} className="suggestion-chip" onClick={() => { setInputValue(s.text); textareaRef.current?.focus(); }}>
+              <span className="chip-icon">{icons[s.category] || "*"}</span>{s.text}
+            </button>
+          ))}
         </div>
+      )}
 
-        <div id="chat-area" ref={chatAreaRef}>
-          {messages.length === 0 && !isTyping && (
-            <div className="empty-state">
-              <svg className="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
-              <span className="empty-text">Awaiting input in the void...</span>
-            </div>
-          )}
-          {messages.map(msg => <MessageBubble key={msg.id} msg={msg} />)}
-          {isTyping && <TypingIndicator />}
-        </div>
-
-        {suggestions.length > 0 && (
-          <div id="suggestions">
-            {suggestions.map((s, i) => (
-              <button key={i} className="suggestion-chip" onClick={() => { setInputValue(s.text); textareaRef.current?.focus(); }}>
-                <span className="chip-icon">{icons[s.category] || "*"}</span>{s.text}
-              </button>
+      <div id="input-area">
+        {attachedFiles.length > 0 && (
+          <div id="file-previews">
+            {attachedFiles.map((f, i) => (
+              <div key={i} className="file-pill">
+                {f.type.startsWith("image/")
+                  ? <img className="file-pill-thumb" src={f.dataUrl} alt={f.name} />
+                  : <div className="file-pill-icon">{fileExtLabel(f.name)}</div>}
+                <span className="file-pill-name">{f.name}</span>
+                <button className="file-pill-remove" onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))}>&times;</button>
+              </div>
             ))}
           </div>
         )}
-
-        <div id="input-area">
-          {attachedFiles.length > 0 && (
-            <div id="file-previews">
-              {attachedFiles.map((f, i) => (
-                <div key={i} className="file-pill">
-                  {f.type.startsWith("image/")
-                    ? <img className="file-pill-thumb" src={f.dataUrl} alt={f.name} />
-                    : <div className="file-pill-icon">{fileExtLabel(f.name)}</div>}
-                  <span className="file-pill-name">{f.name}</span>
-                  <button className="file-pill-remove" onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))}>&times;</button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="input-wrapper">
-            <button className="icon-btn" title="Attach file (Ctrl+Shift+L)" onClick={() => fileInputRef.current?.click()}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-              </svg>
-            </button>
-            <input ref={fileInputRef} type="file" multiple accept="*/*" style={{ display: "none" }}
-              onChange={e => { if (e.target.files?.length) { addFiles(e.target.files); e.target.value = ""; } }} />
-            <textarea
-              ref={textareaRef}
-              id="message-input"
-              placeholder="Message Void..."
-              rows={1}
-              value={inputValue}
-              onChange={e => {
-                setInputValue(e.target.value);
-                e.target.style.height = "auto";
-                e.target.style.height = Math.min(e.target.scrollHeight, 100) + "px";
-              }}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-            />
-            <button id="send-btn" onClick={() => sendMessage()} disabled={isLoading}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="22" y1="2" x2="11" y2="13"/>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-              </svg>
-            </button>
-          </div>
-          <div className="shortcut-hint">Alt+Ctrl+Shift+G to toggle</div>
+        <div className="input-wrapper">
+          <button className="icon-btn" title="Attach file (Ctrl+Shift+L)" onClick={() => fileInputRef.current?.click()}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
+          <input ref={fileInputRef} type="file" multiple accept="*/*" style={{ display: "none" }}
+            onChange={e => { if (e.target.files?.length) { addFiles(e.target.files); e.target.value = ""; } }} />
+          <textarea
+            ref={textareaRef}
+            id="message-input"
+            placeholder="Message Void..."
+            rows={1}
+            value={inputValue}
+            onChange={e => {
+              setInputValue(e.target.value);
+              e.target.style.height = "auto";
+              e.target.style.height = Math.min(e.target.scrollHeight, 100) + "px";
+            }}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+          />
+          <button id="send-btn" onClick={() => sendMessage()} disabled={isLoading}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
         </div>
-
-        {dropActive && (
-          <div id="drop-overlay" className="active">
-            <div className="drop-inner">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-              </svg>
-              <span>Drop files into Void</span>
-            </div>
-          </div>
-        )}
-
-        {showSettings && (
-          <div id="settings-panel" className="active">
-            <div className="settings-title">VOID CONFIGURATION</div>
-            <div>
-              <div className="settings-label">API Base URL</div>
-              <input className="settings-input" type="text" value={apiBase} readOnly />
-              <div className="settings-hint">Void is running on this server — no configuration needed.</div>
-            </div>
-            <div style={{ borderTop: "1px solid rgba(124,58,237,0.15)", paddingTop: "16px", marginTop: "4px" }}>
-              <div className="settings-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Chrome Extension
-              </div>
-              <div className="settings-hint" style={{ marginBottom: "10px" }}>
-                Install Void as a <strong style={{ color: "#a78bfa" }}>real Chrome sidebar</strong> — persists across every tab like a native extension.
-              </div>
-              <div className="settings-hint" style={{ marginBottom: "12px", lineHeight: 1.7 }}>
-                <strong style={{ color: "#94a3b8" }}>How to install:</strong><br />
-                1. Deploy this app to get a live URL<br />
-                2. Download all 4 files below into one folder<br />
-                3. Go to <code style={{ color: "#a78bfa", fontSize: "10px" }}>chrome://extensions</code><br />
-                4. Enable <strong style={{ color: "#94a3b8" }}>Developer mode</strong><br />
-                5. Click <strong style={{ color: "#94a3b8" }}>Load unpacked</strong> → select that folder<br />
-                6. Click the Void icon → enter your live URL<br />
-                7. A <strong style={{ color: "#a78bfa" }}>✦ purple bubble</strong> appears on every page
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block" }} href="/chrome-ext/manifest.json" download="manifest.json">↓ manifest.json</a>
-                <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block", background: "rgba(124,58,237,0.3)" }} href="/chrome-ext/background.js" download="background.js">↓ background.js</a>
-                <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block", background: "rgba(124,58,237,0.3)" }} href="/chrome-ext/content.js" download="content.js">↓ content.js</a>
-                <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block", background: "rgba(124,58,237,0.3)" }} href="/chrome-ext/sidepanel.html" download="sidepanel.html">↓ sidepanel.html</a>
-              </div>
-              <div className="settings-hint" style={{ marginTop: "8px" }}>Put all 4 files in one folder, then load as unpacked extension.</div>
-            </div>
-            <button className="settings-save-btn" onClick={() => setShowSettings(false)} style={{ marginTop: "8px" }}>Close</button>
-            <span className="settings-close" onClick={() => setShowSettings(false)}>Close settings</span>
-          </div>
-        )}
+        {!isStandalone && <div className="shortcut-hint">Alt+Ctrl+Shift+G to toggle</div>}
       </div>
-    </>
+
+      {dropActive && (
+        <div id="drop-overlay" className="active">
+          <div className="drop-inner">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+            <span>Drop files into Void</span>
+          </div>
+        </div>
+      )}
+
+      {showSettings && (
+        <div id="settings-panel" className="active">
+          <div className="settings-title">VOID CONFIGURATION</div>
+
+          {/* Live URL section */}
+          <div>
+            <div className="settings-label">Your Live URL</div>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+              <input className="settings-input" type="text" value={window.location.origin} readOnly style={{ flex: 1, margin: 0 }} />
+              <button className="settings-save-btn" style={{ whiteSpace: "nowrap", padding: "8px 12px" }} onClick={copyLiveUrl}>
+                {urlCopied ? "✓ Copied!" : "Copy"}
+              </button>
+            </div>
+            <div className="settings-hint" style={{ marginTop: "6px" }}>
+              Open this URL in any browser tab to use Void alongside your other tabs. Bookmark it or pin the tab.
+            </div>
+            {!isStandalone && (
+              <button className="settings-save-btn" style={{ marginTop: "8px", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }} onClick={openInNewTab}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <polyline points="15 3 21 3 21 9"/>
+                  <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+                Open in New Tab →
+              </button>
+            )}
+          </div>
+
+          <div style={{ borderTop: "1px solid rgba(124,58,237,0.15)", paddingTop: "16px", marginTop: "4px" }}>
+            <div className="settings-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Chrome Extension
+            </div>
+            <div className="settings-hint" style={{ marginBottom: "10px" }}>
+              Or install as a <strong style={{ color: "#a78bfa" }}>real Chrome sidebar</strong> — persists across every tab like a native extension.
+            </div>
+            <div className="settings-hint" style={{ marginBottom: "12px", lineHeight: 1.7 }}>
+              <strong style={{ color: "#94a3b8" }}>How to install:</strong><br />
+              1. Deploy this app to get a live URL<br />
+              2. Download all 4 files below into one folder<br />
+              3. Go to <code style={{ color: "#a78bfa", fontSize: "10px" }}>chrome://extensions</code><br />
+              4. Enable <strong style={{ color: "#94a3b8" }}>Developer mode</strong><br />
+              5. Click <strong style={{ color: "#94a3b8" }}>Load unpacked</strong> → select that folder<br />
+              6. Click the Void icon → enter your live URL<br />
+              7. A <strong style={{ color: "#a78bfa" }}>✦ purple bubble</strong> appears on every page
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block" }} href="/chrome-ext/manifest.json" download="manifest.json">↓ manifest.json</a>
+              <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block", background: "rgba(124,58,237,0.3)" }} href="/chrome-ext/background.js" download="background.js">↓ background.js</a>
+              <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block", background: "rgba(124,58,237,0.3)" }} href="/chrome-ext/content.js" download="content.js">↓ content.js</a>
+              <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block", background: "rgba(124,58,237,0.3)" }} href="/chrome-ext/sidepanel.html" download="sidepanel.html">↓ sidepanel.html</a>
+            </div>
+            <div className="settings-hint" style={{ marginTop: "8px" }}>Put all 4 files in one folder, then load as unpacked extension.</div>
+          </div>
+
+          <button className="settings-save-btn" onClick={() => setShowSettings(false)} style={{ marginTop: "8px" }}>Close</button>
+          <span className="settings-close" onClick={() => setShowSettings(false)}>Close settings</span>
+        </div>
+      )}
+    </div>
   );
 }
