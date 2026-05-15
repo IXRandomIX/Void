@@ -107,9 +107,9 @@ router.post("/chat", async (req, res) => {
     ];
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       messages,
-      max_tokens: 2048,
+      max_completion_tokens: 2048,
     });
 
     const replyContent = completion.choices[0]?.message?.content || "No response received.";
