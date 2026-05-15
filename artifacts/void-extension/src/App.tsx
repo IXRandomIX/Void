@@ -495,9 +495,32 @@ export default function App() {
       }
     }
 
-    // Fallback: Document PiP unavailable (e.g. inside iframe or older browser)
-    // Activate companion-panel mode so the user can still attach files from the main window
-    setPipActive(true);
+    // Fallback: use window.open() — works everywhere including inside iframes
+    const pipWin = window.open(
+      "",
+      "void-pip",
+      "width=480,height=580,menubar=no,toolbar=no,location=no,status=no,resizable=yes"
+    );
+    if (pipWin) {
+      documentPipWindowRef.current = pipWin;
+      initDocumentPipWindow(pipWin);
+      renderPipMessages(pipWin, messages, isTyping);
+      renderPipPreviews(pipWin, attachedFiles, (i) =>
+        setAttachedFiles(prev => prev.filter((_, j) => j !== i))
+      );
+      // Poll for close since window.open() has no pagehide event
+      const closeCheck = setInterval(() => {
+        if (pipWin.closed) {
+          clearInterval(closeCheck);
+          documentPipWindowRef.current = null;
+          setPipActive(false);
+        }
+      }, 500);
+      setPipActive(true);
+    } else {
+      // Pop-ups blocked — fall back to companion panel
+      setPipActive(true);
+    }
   }
 
   // Track live URL changes
