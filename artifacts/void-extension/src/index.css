@@ -977,3 +977,21 @@ html, body, #root {
   line-height: 1;
   user-select: none;
 }
+
+/* ── Page scan badge ───────────────────────────────────────────────────── */
+.context-scan-badge {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #a78bfa;
+  background: rgba(124, 58, 237, 0.15);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: 4px;
+  padding: 2px 6px;
+  animation: scanFadeIn 0.3s ease;
+}
+
+@keyframes scanFadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

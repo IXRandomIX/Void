@@ -357,6 +357,24 @@ export default function App() {
     }
   }
 
+  // ── Page content scanner ─────────────────────────────────────────────────
+  const [pageScanned, setPageScanned] = useState(false);
+
+  function fetchPageContent(): Promise<{ content: string; title: string; url: string } | null> {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve(null), 1200);
+      function handler(e: MessageEvent) {
+        if (e.data?.type === "VOID_PAGE_CONTENT") {
+          clearTimeout(timeout);
+          window.removeEventListener("message", handler);
+          resolve({ content: e.data.content, title: e.data.title, url: e.data.url });
+        }
+      }
+      window.addEventListener("message", handler);
+      window.parent.postMessage({ type: "VOID_GET_PAGE_CONTENT" }, "*");
+    });
+  }
+
   // ── Chat ──────────────────────────────────────────────────────────────────
   async function addFiles(fileList: FileList | File[]) {
     const results: AttachedFile[] = [];
@@ -377,12 +395,18 @@ export default function App() {
     setIsTyping(true);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     try {
+      const page = await fetchPageContent();
+      if (page) setPageScanned(true);
+      setTimeout(() => setPageScanned(false), 2500);
+
       const res = await fetch(`${apiBase}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text || "Please analyze the attached file(s).",
-          url: null, pageTitle: null,
+          url: page?.url ?? null,
+          pageTitle: page?.title ?? null,
+          pageContent: page?.content ?? null,
           files: filesToSend.map(f => ({ name: f.name, type: f.type, data: f.data })),
         }),
       });
@@ -530,6 +554,7 @@ export default function App() {
             <span className="context-url">{tabUrl ?? liveUrl}</span>
           </div>
           {tabUrl && <span className="context-live-badge">LIVE</span>}
+          {pageScanned && <span className="context-scan-badge">✦ page scanned</span>}
         </div>
 
         <div id="chat-area" ref={chatAreaRef}>

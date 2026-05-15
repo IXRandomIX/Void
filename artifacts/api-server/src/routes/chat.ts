@@ -69,10 +69,11 @@ router.delete("/chat/history", (_req, res) => {
 });
 
 router.post("/chat", async (req, res) => {
-  const { message, url: pageUrl, pageTitle, files } = req.body as {
+  const { message, url: pageUrl, pageTitle, pageContent, files } = req.body as {
     message: string;
     url?: string;
     pageTitle?: string;
+    pageContent?: string;
     files?: FileAttachment[];
   };
 
@@ -92,9 +93,13 @@ router.post("/chat", async (req, res) => {
   };
   chatHistory.push(userMsg);
 
-  const systemPrompt = pageUrl
-    ? `You are Void, a precise and intelligent AI assistant living in the browser sidebar. The user is currently on: ${pageTitle || pageUrl} (${pageUrl}). Be concise, helpful, and respond in the aesthetic of deep space — calm, precise, and knowledgeable. When analyzing files, be thorough and detailed.`
-    : `You are Void, a precise and intelligent AI assistant living in the browser sidebar. Be concise, helpful, and respond in the aesthetic of deep space — calm, precise, and knowledgeable. When analyzing files, be thorough and detailed.`;
+  const pageContextBlock = pageContent
+    ? `\n\n--- Current page content (${pageTitle || pageUrl || "unknown page"}) ---\n${pageContent.slice(0, 18000)}\n--- End of page content ---`
+    : "";
+
+  const systemPrompt = `You are Void, a precise and intelligent AI assistant living in the browser sidebar. Be concise, helpful, and respond in the aesthetic of deep space — calm, precise, and knowledgeable. When analyzing files, be thorough and detailed.${pageUrl ? ` The user is currently on: ${pageTitle || pageUrl} (${pageUrl}).` : ""}${pageContextBlock}
+
+When the user says "answer", "answer this", "solve this", or similar, use the page content above to directly answer any questions or problems visible on the page. Be specific and accurate.`;
 
   try {
     const openai = getOpenAI();

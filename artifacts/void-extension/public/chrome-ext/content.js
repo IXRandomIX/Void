@@ -281,6 +281,22 @@
       chrome.storage.local.set({ voidX: posX, voidY: posY });
     });
 
+    // ── Respond to page content requests from the Void iframe ─────────
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'VOID_GET_PAGE_CONTENT') {
+        const raw = document.body?.innerText || document.documentElement?.innerText || '';
+        const content = raw.replace(/\s{3,}/g, '\n\n').trim().slice(0, 20000);
+        try {
+          iframe.contentWindow?.postMessage({
+            type: 'VOID_PAGE_CONTENT',
+            content,
+            title: document.title,
+            url: location.href,
+          }, '*');
+        } catch {}
+      }
+    });
+
     // ── Receive live tab URL from background ───────────────────────────
     chrome.runtime.onMessage.addListener((msg) => {
       if (msg.type === 'TAB_URL' && msg.url) {
