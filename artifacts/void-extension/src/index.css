@@ -179,6 +179,32 @@ html, body, #root {
   box-shadow: 0 0 4px #22c55e;
 }
 
+.context-dot.live {
+  background: #a78bfa;
+  box-shadow: 0 0 6px #7c3aed;
+  animation: live-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { box-shadow: 0 0 4px #7c3aed; }
+  50% { box-shadow: 0 0 10px #7c3aed, 0 0 18px rgba(124,58,237,0.4); }
+}
+
+.context-live-badge {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #7c3aed;
+  background: rgba(124,58,237,0.12);
+  border: 1px solid rgba(124,58,237,0.25);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+#context-bar { display: flex; align-items: center; }
+
 .context-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 #chat-area {

@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Void AI",
+  "version": "2.0",
+  "description": "AI assistant sidebar — follows you across every Chrome tab",
+  "permissions": ["sidePanel", "tabs", "activeTab"],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open Void",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  },
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}

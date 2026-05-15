@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Void AI</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #07050f; }
+
+    #frame { width: 100%; height: 100%; border: none; display: none; }
+
+    #setup {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; padding: 32px 24px; font-family: system-ui, sans-serif; color: #e2e8f0;
+      background: #07050f;
+    }
+    .setup-dot {
+      width: 12px; height: 12px; border-radius: 50%; background: #7c3aed;
+      box-shadow: 0 0 16px rgba(124,58,237,0.9); margin-bottom: 20px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 8px rgba(124,58,237,0.6); }
+      50% { box-shadow: 0 0 24px rgba(124,58,237,1), 0 0 40px rgba(124,58,237,0.3); }
+    }
+    .setup-title { font-size: 18px; font-weight: 700; letter-spacing: 0.2em; color: #e8e0ff; margin-bottom: 8px; }
+    .setup-sub { font-size: 12px; color: #64748b; text-align: center; margin-bottom: 28px; line-height: 1.5; }
+    .setup-label { font-size: 11px; color: #94a3b8; align-self: flex-start; margin-bottom: 6px; letter-spacing: 0.05em; text-transform: uppercase; width: 100%; }
+    .setup-input {
+      width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(124,58,237,0.3); border-radius: 8px;
+      color: #e2e8f0; font-size: 13px; outline: none; margin-bottom: 16px;
+    }
+    .setup-input:focus { border-color: rgba(124,58,237,0.7); box-shadow: 0 0 12px rgba(124,58,237,0.15); }
+    .setup-input::placeholder { color: #3b2d6e; }
+    .setup-btn {
+      width: 100%; padding: 11px; background: #7c3aed; border: none; border-radius: 9px;
+      color: white; font-size: 13px; font-weight: 600; cursor: pointer;
+      box-shadow: 0 0 16px rgba(124,58,237,0.4); transition: all 0.2s;
+    }
+    .setup-btn:hover { background: #6d28d9; box-shadow: 0 0 24px rgba(124,58,237,0.6); }
+    .setup-hint { margin-top: 16px; font-size: 10px; color: #3b2d6e; text-align: center; line-height: 1.6; }
+    .setup-hint a { color: #7c3aed; text-decoration: none; }
+
+    #loading {
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; gap: 12px; background: #07050f;
+    }
+    .loading-dot { width: 8px; height: 8px; border-radius: 50%; background: #7c3aed; animation: pulse 1.5s ease-in-out infinite; }
+    .loading-text { font-family: system-ui; font-size: 11px; color: #64748b; font-style: italic; }
+  </style>
+</head>
+<body>
+
+<div id="setup">
+  <div class="setup-dot"></div>
+  <div class="setup-title">VOID</div>
+  <div class="setup-sub">Your AI assistant, on every tab.<br/>Enter your Void app URL to connect.</div>
+  <div class="setup-label">Void App URL</div>
+  <input
+    id="url-input"
+    class="setup-input"
+    type="url"
+    placeholder="https://your-app.replit.app"
+    autofocus
+  />
+  <button class="setup-btn" onclick="connect()">Connect Void →</button>
+  <p class="setup-hint">
+    Deploy your Void app on Replit, then paste the published URL above.<br/>
+    The URL looks like <code style="color:#7c3aed">yourapp.replit.app</code>
+  </p>
+</div>
+
+<div id="loading">
+  <div class="loading-dot"></div>
+  <div class="loading-text">Connecting to Void...</div>
+</div>
+
+<iframe id="frame" allow="clipboard-read; clipboard-write; camera; microphone"></iframe>
+
+<script>
+  const STORAGE_KEY = "void-app-url";
+
+  // Restore saved URL
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) loadVoid(saved);
+
+  function connect() {
+    const raw = document.getElementById("url-input").value.trim();
+    if (!raw) return;
+    const url = raw.endsWith("/") ? raw.slice(0, -1) : raw;
+    localStorage.setItem(STORAGE_KEY, url);
+    loadVoid(url);
+  }
+
+  function loadVoid(url) {
+    document.getElementById("setup").style.display = "none";
+    document.getElementById("loading").style.display = "flex";
+    const frame = document.getElementById("frame");
+    frame.onload = () => {
+      document.getElementById("loading").style.display = "none";
+      frame.style.display = "block";
+    };
+    frame.onerror = () => {
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("setup").style.display = "flex";
+    };
+    frame.src = url;
+  }
+
+  // Forward active tab URL to the Void iframe so the context bar stays live
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type === "TAB_URL") {
+      const frame = document.getElementById("frame");
+      if (frame && frame.contentWindow) {
+        try {
+          frame.contentWindow.postMessage({ type: "VOID_TAB_URL", url: msg.url }, "*");
+        } catch {}
+      }
+    }
+  });
+
+  // Enter key submits
+  document.getElementById("url-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") connect();
+  });
+</script>
+</body>
+</html>

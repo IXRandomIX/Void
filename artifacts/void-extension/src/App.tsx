@@ -234,6 +234,7 @@ function TypingIndicator() {
 export default function App() {
   const apiBase = window.location.origin;
   const [liveUrl, setLiveUrl] = useState(window.location.host);
+  const [tabUrl, setTabUrl] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -531,6 +532,19 @@ export default function App() {
     return () => { window.removeEventListener("popstate", update); window.removeEventListener("hashchange", update); };
   }, []);
 
+  // Receive live tab URL from the Chrome extension (background.js → sidepanel → postMessage)
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === "VOID_TAB_URL" && typeof e.data.url === "string") {
+        try {
+          setTabUrl(new URL(e.data.url).host);
+        } catch {}
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
   // Global shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -596,9 +610,10 @@ export default function App() {
 
       <div id="context-bar">
         <div className="context-pill">
-          <div className="context-dot" />
-          <span className="context-url">{liveUrl}</span>
+          <div className={`context-dot${tabUrl ? " live" : ""}`} />
+          <span className="context-url">{tabUrl ?? liveUrl}</span>
         </div>
+        {tabUrl && <span className="context-live-badge">LIVE</span>}
       </div>
 
       {pipActive ? (
@@ -729,12 +744,50 @@ export default function App() {
       {showSettings && (
         <div id="settings-panel" className="active">
           <div className="settings-title">VOID CONFIGURATION</div>
+
           <div>
             <div className="settings-label">API Base URL</div>
             <input className="settings-input" type="text" value={apiBase} readOnly />
             <div className="settings-hint">Void is running on this server — no configuration needed.</div>
           </div>
-          <button className="settings-save-btn" onClick={() => setShowSettings(false)}>Close</button>
+
+          <div style={{ borderTop: "1px solid rgba(124,58,237,0.15)", paddingTop: "16px", marginTop: "4px" }}>
+            <div className="settings-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Chrome Extension
+            </div>
+            <div className="settings-hint" style={{ marginBottom: "10px" }}>
+              Install Void as a <strong style={{ color: "#a78bfa" }}>real Chrome sidebar</strong> — stays open as you switch between every tab, just like a native extension.
+            </div>
+            <div className="settings-hint" style={{ marginBottom: "12px", lineHeight: 1.7 }}>
+              <strong style={{ color: "#94a3b8" }}>How to install:</strong><br />
+              1. First <a href="https://replit.com" target="_blank" rel="noreferrer" style={{ color: "#7c3aed" }}>deploy this app</a> to get a live URL<br />
+              2. Download the 3 extension files below<br />
+              3. In Chrome go to <code style={{ color: "#a78bfa", fontSize: "10px" }}>chrome://extensions</code><br />
+              4. Enable <strong style={{ color: "#94a3b8" }}>Developer mode</strong> (top-right toggle)<br />
+              5. Click <strong style={{ color: "#94a3b8" }}>Load unpacked</strong> → select the folder<br />
+              6. Click the Void icon → enter your live URL
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block" }}
+                href="/chrome-ext/manifest.json" download="manifest.json">
+                ↓ manifest.json
+              </a>
+              <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block", background: "rgba(124,58,237,0.3)" }}
+                href="/chrome-ext/background.js" download="background.js">
+                ↓ background.js
+              </a>
+              <a className="settings-save-btn" style={{ textAlign: "center", textDecoration: "none", display: "block", background: "rgba(124,58,237,0.3)" }}
+                href="/chrome-ext/sidepanel.html" download="sidepanel.html">
+                ↓ sidepanel.html
+              </a>
+            </div>
+            <div className="settings-hint" style={{ marginTop: "8px" }}>
+              Put all 3 files in the same folder, then load that folder as an unpacked extension.
+            </div>
+          </div>
+
+          <button className="settings-save-btn" onClick={() => setShowSettings(false)} style={{ marginTop: "8px" }}>Close</button>
           <span className="settings-close" onClick={() => setShowSettings(false)}>Close settings</span>
         </div>
       )}
