@@ -978,6 +978,29 @@ html, body, #root {
   user-select: none;
 }
 
+/* ── PiP drag-and-drop overlay ─────────────────────────────────────────── */
+.pip-overlay {
+  position: relative;
+}
+.pip-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(124,58,237,0.18);
+  border: 2px dashed rgba(124,58,237,0.7);
+  border-radius: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #a78bfa;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
 /* ── Scan tab button ───────────────────────────────────────────────────── */
 .scan-tab-btn {
   color: #7c3aed;

@@ -158,13 +158,39 @@ function PipOverlay({
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pipDropActive, setPipDropActive] = useState(false);
+  const pipDragCounter = useRef(0);
 
   useEffect(() => {
     if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
   }, [messages, isTyping]);
 
+  const handlePipDragEnter = (e: React.DragEvent) => { e.preventDefault(); pipDragCounter.current++; setPipDropActive(true); };
+  const handlePipDragLeave = () => { pipDragCounter.current--; if (pipDragCounter.current <= 0) { pipDragCounter.current = 0; setPipDropActive(false); } };
+  const handlePipDragOver = (e: React.DragEvent) => e.preventDefault();
+  const handlePipDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    pipDragCounter.current = 0;
+    setPipDropActive(false);
+    if (e.dataTransfer.files.length > 0) onAddFiles(e.dataTransfer.files);
+  };
+
   return (
-    <div className="pip-overlay">
+    <div
+      className={`pip-overlay${pipDropActive ? " pip-drop-active" : ""}`}
+      onDragEnter={handlePipDragEnter}
+      onDragLeave={handlePipDragLeave}
+      onDragOver={handlePipDragOver}
+      onDrop={handlePipDrop}
+    >
+      {pipDropActive && (
+        <div className="pip-drop-overlay">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+          </svg>
+          <span>Drop files into Void</span>
+        </div>
+      )}
       <div className="pip-header">
         <div className="logo-dot" />
         <span className="pip-title">VOID</span>
