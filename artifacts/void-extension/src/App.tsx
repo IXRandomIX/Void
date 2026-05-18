@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 interface AttachedFile {
   name: string;
@@ -25,14 +27,51 @@ function escapeHtml(text: string) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function renderMarkdown(text: string) {
-  return text
-    .replace(/```(\w*)\n?([\s\S]*?)```/g, (_: string, __: string, code: string) =>
-      `<pre><code>${escapeHtml(code.trim())}</code></pre>`
-    )
-    .replace(/`([^`]+)`/g, (_: string, code: string) => `<code>${escapeHtml(code)}</code>`)
+function renderMath(tex: string, block: boolean): string {
+  try {
+    return katex.renderToString(tex, { displayMode: block, throwOnError: false, output: "html" });
+  } catch {
+    return escapeHtml(tex);
+  }
+}
+
+function renderMarkdown(text: string): string {
+  const BLOCK_MATH = /\$\$([\s\S]+?)\$\$/g;
+  const INLINE_MATH = /\$([^\n$]+?)\$/g;
+  const CODE_BLOCK = /```(\w*)\n?([\s\S]*?)```/g;
+  const INLINE_CODE = /`([^`]+)`/g;
+
+  const placeholders: string[] = [];
+  function stash(html: string) {
+    const key = `\x00${placeholders.length}\x00`;
+    placeholders.push(html);
+    return key;
+  }
+
+  let out = text;
+  out = out.replace(CODE_BLOCK, (_: string, __: string, code: string) =>
+    stash(`<pre><code>${escapeHtml(code.trim())}</code></pre>`)
+  );
+  out = out.replace(BLOCK_MATH, (_: string, tex: string) =>
+    stash(`<div class="math-block">${renderMath(tex.trim(), true)}</div>`)
+  );
+  out = out.replace(INLINE_CODE, (_: string, code: string) =>
+    stash(`<code>${escapeHtml(code)}</code>`)
+  );
+  out = out.replace(INLINE_MATH, (_: string, tex: string) =>
+    stash(`<span class="math-inline">${renderMath(tex.trim(), false)}</span>`)
+  );
+
+  out = out
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*\n]+)\*/g, "<em>$1</em>")
+    .replace(/^#{1,3} (.+)$/gm, (_: string, h: string) => `<div class="md-heading">${escapeHtml(h)}</div>`)
+    .replace(/^[-*] (.+)$/gm, (_: string, item: string) => `<div class="md-li">• ${item}</div>`)
+    .replace(/^(\d+)\. (.+)$/gm, (_: string, n: string, item: string) => `<div class="md-li">${n}. ${item}</div>`)
     .replace(/\n/g, "<br>");
+
+  out = out.replace(/\x00(\d+)\x00/g, (_: string, i: string) => placeholders[+i]);
+  return out;
 }
 
 function fileExtLabel(name: string) {

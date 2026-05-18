@@ -178,6 +178,13 @@ When analyzing images or screenshots of worksheets:
 
 ${resolvedUrl ? `The user is currently on: ${resolvedTitle || resolvedUrl} (${resolvedUrl}).` : ""}${pageContextBlock}
 
+MATH FORMATTING — always use LaTeX notation:
+- Wrap ALL math expressions in LaTeX delimiters: use $...$ for inline math and $$...$$ for block/display math.
+- Examples: $x = 5$, $\\frac{x+1}{2}$, $\\sqrt{49} = 7$, $$x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
+- Use ÷ for division in plain text only when NOT inside LaTeX; inside LaTeX use \\div or \\frac{}{}.
+- NEVER write raw LaTeX commands outside of $ delimiters (never write \\frac outside dollar signs).
+- Always display the final answer in a $$...$$ block.
+
 When the user says "answer", "answer this", "answer all", "solve", or similar — find EVERY question or problem in the content or image and answer each one directly, completely, and with full work shown. Never say "I can't" for a standard math or science problem.`;
 
   try {
