@@ -3,7 +3,6 @@ import OpenAI from "openai";
 
 const router = Router();
 
-// ── HTML → plain text extractor ───────────────────────────────────────────
 function htmlToText(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -20,7 +19,6 @@ function htmlToText(html: string): string {
     .trim();
 }
 
-// ── Fetch a URL and return its readable text content ─────────────────────
 async function fetchUrlContent(url: string): Promise<{ content: string; title: string } | null> {
   try {
     const res = await fetch(url, {
@@ -38,7 +36,6 @@ async function fetchUrlContent(url: string): Promise<{ content: string; title: s
   }
 }
 
-// ── Detect a URL in text ──────────────────────────────────────────────────
 function extractUrl(text: string): string | null {
   const match = text.match(/https?:\/\/[^\s"'<>]+/i);
   return match ? match[0] : null;
@@ -124,13 +121,13 @@ router.post("/chat", async (req, res) => {
   }
 
   const userText = message || "Please analyze the attached file(s).";
+  const hasImages = (files || []).some(f => f.type.startsWith("image/"));
 
-  // ── Auto-fetch URL if one is detected in the message ─────────────────
   let resolvedContent = pageContent || null;
   let resolvedUrl = pageUrl || null;
   let resolvedTitle = pageTitle || null;
-
   let urlFetchFailed = false;
+
   if (!resolvedContent) {
     const detectedUrl = extractUrl(userText);
     if (detectedUrl) {
@@ -168,35 +165,61 @@ When the user says "answer", "answer this", "answer all", "solve this", or simil
   try {
     const openai = getOpenAI();
     const userContent = await buildMessageContent(userText, files || []);
+    const model = hasImages ? "gpt-4o" : "gpt-4o-mini";
 
     const messages = [
       { role: "system" as const, content: systemPrompt },
-      ...chatHistory.slice(0, -1).map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
-      { role: "user" as const, content: userContent as string },
+      ...chatHistory.slice(0, -1).map(m => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+      { role: "user" as const, content: userContent as any },
     ];
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5-mini",
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    res.write(`data: ${JSON.stringify({ type: "user", message: userMsg })}\n\n`);
+
+    const replyId = Date.now() + 1;
+    const stream = await openai.chat.completions.create({
+      model,
       messages,
       max_completion_tokens: 2048,
+      stream: true,
     });
 
-    const replyContent = completion.choices[0]?.message?.content || "No response received.";
+    let fullContent = "";
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content || "";
+      if (delta) {
+        fullContent += delta;
+        res.write(`data: ${JSON.stringify({ type: "delta", delta, id: replyId })}\n\n`);
+      }
+    }
 
     const replyMsg: ChatMessage = {
-      id: Date.now() + 1,
+      id: replyId,
       role: "assistant",
-      content: replyContent,
+      content: fullContent || "No response received.",
       url: null,
       createdAt: new Date().toISOString(),
     };
     chatHistory.push(replyMsg);
 
-    res.json({ message: userMsg, reply: replyMsg });
+    res.write(`data: ${JSON.stringify({ type: "done", reply: replyMsg })}\n\n`);
+    res.end();
   } catch (err) {
     req.log.error({ err }, "AI chat error");
     chatHistory.pop();
-    res.status(500).json({ error: "Failed to get AI response" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to get AI response" });
+    } else {
+      res.write(`data: ${JSON.stringify({ type: "error", error: "Failed to get AI response" })}\n\n`);
+      res.end();
+    }
   }
 });
 

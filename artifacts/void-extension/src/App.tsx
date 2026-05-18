@@ -467,8 +467,6 @@ export default function App() {
     }
     setPageScanned(true);
     setTimeout(() => setPageScanned(false), 2500);
-    const userMsg = { id: Date.now(), role: "user" as const, content: "Answer all questions on this page.", createdAt: new Date().toISOString() };
-    setMessages(prev => [...prev, userMsg]);
     try {
       const res = await fetch(`${apiBase}/api/chat`, {
         method: "POST",
@@ -478,14 +476,43 @@ export default function App() {
           url: page.url, pageTitle: page.title, pageContent: page.content, files: [],
         }),
       });
-      setIsTyping(false);
-      if (!res.ok) {
+
+      if (!res.ok || !res.body) {
+        setIsTyping(false);
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
         setMessages(prev => [...prev, { id: Date.now(), role: "assistant" as const, content: `Error: ${err.error || "Failed"}`, createdAt: new Date().toISOString() }]);
         return;
       }
-      const data = await res.json();
-      setMessages(prev => [...prev, data.reply]);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+          try {
+            const event = JSON.parse(raw);
+            if (event.type === "user") {
+              setMessages(prev => [...prev, event.message]);
+            } else if (event.type === "delta") {
+              setIsTyping(false);
+              setMessages(prev => {
+                const exists = prev.find(m => m.id === event.id);
+                if (exists) return prev.map(m => m.id === event.id ? { ...m, content: m.content + event.delta } : m);
+                return [...prev, { id: event.id, role: "assistant" as const, content: event.delta, createdAt: new Date().toISOString() }];
+              });
+            }
+          } catch {}
+        }
+      }
     } catch {
       setIsTyping(false);
       setMessages(prev => [...prev, { id: Date.now(), role: "assistant" as const, content: "Could not connect to Void. Please try again.", createdAt: new Date().toISOString() }]);
@@ -531,14 +558,48 @@ export default function App() {
           files: filesToSend.map(f => ({ name: f.name, type: f.type, data: f.data })),
         }),
       });
-      setIsTyping(false);
-      if (!res.ok) {
+
+      if (!res.ok || !res.body) {
+        setIsTyping(false);
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
         setMessages(prev => [...prev, { id: Date.now(), role: "assistant" as const, content: `Error: ${err.error || "Failed"}`, createdAt: new Date().toISOString() }]);
         return;
       }
-      const data = await res.json();
-      setMessages(prev => [...prev, { ...data.message, files: filesToSend }, data.reply]);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let streamId: number | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+          try {
+            const event = JSON.parse(raw);
+            if (event.type === "user") {
+              setMessages(prev => [...prev, { ...event.message, files: filesToSend }]);
+            } else if (event.type === "delta") {
+              setIsTyping(false);
+              streamId = event.id;
+              setMessages(prev => {
+                const exists = prev.find(m => m.id === event.id);
+                if (exists) return prev.map(m => m.id === event.id ? { ...m, content: m.content + event.delta } : m);
+                return [...prev, { id: event.id, role: "assistant" as const, content: event.delta, createdAt: new Date().toISOString() }];
+              });
+            } else if (event.type === "error") {
+              setIsTyping(false);
+              if (!streamId) setMessages(prev => [...prev, { id: Date.now(), role: "assistant" as const, content: event.error || "An error occurred.", createdAt: new Date().toISOString() }]);
+            }
+          } catch {}
+        }
+      }
     } catch {
       setIsTyping(false);
       setMessages(prev => [...prev, { id: Date.now(), role: "assistant" as const, content: "Could not connect to Void. Please try again.", createdAt: new Date().toISOString() }]);
