@@ -174,6 +174,44 @@
         display: block;
         background: #07050f;
       }
+
+      /* ── Scan button ── */
+      .v-scan {
+        background: none;
+        border: 1px solid rgba(124,58,237,0.35);
+        border-radius: 6px;
+        color: #7c3aed;
+        font-size: 13px;
+        cursor: pointer;
+        line-height: 1;
+        padding: 3px 5px;
+        opacity: 0.85;
+        transition: opacity 0.15s, background 0.15s, color 0.15s;
+        flex-shrink: 0;
+        title: 'Scan page & answer questions';
+      }
+      .v-scan:hover { opacity: 1; color: #a78bfa; background: rgba(124,58,237,0.15); }
+      .v-scan.scanning { color: #a78bfa; animation: voidPulse 1s infinite; }
+      @keyframes voidPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+      /* ── Drop overlay ── */
+      #void-drop-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(124,58,237,0.18);
+        border: 2px dashed rgba(124,58,237,0.7);
+        border-radius: 12px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        color: #a78bfa;
+        font-size: 14px;
+        font-weight: 600;
+        pointer-events: none;
+        letter-spacing: 0.05em;
+      }
+      #void-drop-overlay.active { display: flex; }
     `;
     shadow.appendChild(style);
 
@@ -221,9 +259,16 @@
       <div class="v-dot"></div>
       <span class="v-title">VOID</span>
       <span class="v-url" id="void-tab-url">${location.hostname}</span>
+      <button class="v-scan" id="void-scan-btn" title="Scan this page & answer all questions">⊕</button>
       <button class="v-close" id="void-close-btn" title="Close">×</button>
     `;
     panel.appendChild(header);
+
+    // Drop overlay
+    const dropOverlay = document.createElement('div');
+    dropOverlay.id = 'void-drop-overlay';
+    dropOverlay.textContent = '✦ Drop files into Void';
+    panel.appendChild(dropOverlay);
 
     // iframe
     const iframe = document.createElement('iframe');
@@ -251,6 +296,68 @@
     });
 
     shadow.getElementById('void-close-btn').addEventListener('click', () => setOpen(false));
+
+    // ── Scan Tab button ────────────────────────────────────────────────
+    const scanBtn = shadow.getElementById('void-scan-btn');
+    scanBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      scanBtn.classList.add('scanning');
+      const raw = document.body?.innerText || document.documentElement?.innerText || '';
+      const content = raw.replace(/\s{3,}/g, '\n\n').trim().slice(0, 20000);
+      try {
+        iframe.contentWindow?.postMessage({
+          type: 'VOID_SCAN_TAB_TRIGGER',
+          content,
+          title: document.title,
+          url: location.href,
+        }, '*');
+      } catch {}
+      setTimeout(() => scanBtn.classList.remove('scanning'), 2000);
+    });
+
+    // ── Drag-and-drop files onto the panel ────────────────────────────
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ name: file.name, type: file.type, dataUrl: reader.result });
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    let dropCounter = 0;
+
+    panel.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropCounter++;
+      dropOverlay.classList.add('active');
+    });
+
+    panel.addEventListener('dragleave', (e) => {
+      e.stopPropagation();
+      dropCounter--;
+      if (dropCounter <= 0) { dropCounter = 0; dropOverlay.classList.remove('active'); }
+    });
+
+    panel.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    panel.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropCounter = 0;
+      dropOverlay.classList.remove('active');
+      const files = Array.from(e.dataTransfer?.files || []).slice(0, 5);
+      if (!files.length) return;
+      const results = (await Promise.all(files.map(readFileAsDataUrl))).filter(Boolean);
+      if (!results.length) return;
+      try {
+        iframe.contentWindow?.postMessage({ type: 'VOID_DROP_FILES', files: results }, '*');
+      } catch {}
+    });
 
     // ── Dragging ───────────────────────────────────────────────────────
     let dragging = false;

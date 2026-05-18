@@ -284,14 +284,61 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const handler = (e: MessageEvent) => {
+    const handler = async (e: MessageEvent) => {
+      // Tab URL update from extension
       if (e.data?.type === "VOID_TAB_URL" && typeof e.data.url === "string") {
         try { setTabUrl(new URL(e.data.url).host); } catch {}
+      }
+
+      // Extension scan-tab button was clicked — run full scan with provided content
+      if (e.data?.type === "VOID_SCAN_TAB_TRIGGER") {
+        const { content, title, url } = e.data;
+        if (!content?.trim()) {
+          setMessages(prev => [...prev, {
+            id: Date.now(), role: "assistant" as const,
+            content: "I couldn't read this page — it may be image-based. Try attaching a screenshot using the paperclip button and I'll solve the questions from the image.",
+            createdAt: new Date().toISOString(),
+          }]);
+          return;
+        }
+        setIsLoading(true);
+        setIsTyping(true);
+        setPageScanned(true);
+        setTimeout(() => setPageScanned(false), 2500);
+        const userMsg = { id: Date.now(), role: "user" as const, content: "Answer all questions on this page.", createdAt: new Date().toISOString() };
+        setMessages(prev => [...prev, userMsg]);
+        try {
+          const res = await fetch(`${apiBase}/api/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: "Answer all questions on this page.", url, pageTitle: title, pageContent: content, files: [] }),
+          });
+          setIsTyping(false);
+          const data = await res.json();
+          setMessages(prev => [...prev, res.ok ? data.reply : { id: Date.now(), role: "assistant" as const, content: `Error: ${data.error || "Failed"}`, createdAt: new Date().toISOString() }]);
+        } catch {
+          setIsTyping(false);
+          setMessages(prev => [...prev, { id: Date.now(), role: "assistant" as const, content: "Could not connect to Void.", createdAt: new Date().toISOString() }]);
+        } finally {
+          setIsLoading(false);
+          textareaRef.current?.focus();
+        }
+      }
+
+      // Files dropped onto the extension panel — add to attached files
+      if (e.data?.type === "VOID_DROP_FILES" && Array.isArray(e.data.files)) {
+        const incoming: AttachedFile[] = e.data.files.map((f: { name: string; type: string; dataUrl: string }) => ({
+          name: f.name, type: f.type,
+          data: f.dataUrl.split(",")[1] || "",
+          dataUrl: f.dataUrl,
+        }));
+        setAttachedFiles(prev => [...prev, ...incoming].slice(0, 5));
+        textareaRef.current?.focus();
       }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, []);
+  }, [apiBase]);
 
   // ── Document Picture-in-Picture ───────────────────────────────────────────
   async function togglePip() {
