@@ -130,13 +130,17 @@ router.post("/chat", async (req, res) => {
   let resolvedUrl = pageUrl || null;
   let resolvedTitle = pageTitle || null;
 
+  let urlFetchFailed = false;
   if (!resolvedContent) {
     const detectedUrl = extractUrl(userText);
     if (detectedUrl) {
       const fetched = await fetchUrlContent(detectedUrl);
-      if (fetched) {
+      if (fetched && fetched.content.length > 100) {
         resolvedContent = fetched.content;
         resolvedTitle = fetched.title;
+        resolvedUrl = detectedUrl;
+      } else {
+        urlFetchFailed = true;
         resolvedUrl = detectedUrl;
       }
     }
@@ -155,9 +159,11 @@ router.post("/chat", async (req, res) => {
     ? `\n\n--- Page content (${resolvedTitle || resolvedUrl || "scanned page"}) ---\n${resolvedContent.slice(0, 18000)}\n--- End of page content ---`
     : "";
 
-  const systemPrompt = `You are Void, a precise and intelligent AI assistant living in the browser sidebar. Be concise, helpful, and respond in the aesthetic of deep space — calm, precise, and knowledgeable. When analyzing files, be thorough and detailed.${resolvedUrl ? ` The user is currently on: ${resolvedTitle || resolvedUrl} (${resolvedUrl}).` : ""}${pageContextBlock}
+  const systemPrompt = urlFetchFailed
+    ? `You are Void, a precise and intelligent AI assistant living in the browser sidebar. The user pasted this URL: ${resolvedUrl} — but you could not access it (it likely requires login or is behind a paywall). Explain this clearly and give them two options: (1) use the Scan Tab button (the crosshair icon) which reads their current tab directly through the browser extension, or (2) take a screenshot of the page and attach it using the paperclip button — you can then answer questions from the image. Be brief and helpful.`
+    : `You are Void, a precise and intelligent AI assistant living in the browser sidebar. Be concise, helpful, and respond in the aesthetic of deep space — calm, precise, and knowledgeable. When analyzing files or images, be thorough and detailed.${resolvedUrl ? ` The user is currently on: ${resolvedTitle || resolvedUrl} (${resolvedUrl}).` : ""}${pageContextBlock}
 
-When the user says "answer", "answer this", "answer all", "solve this", or similar — or when they paste a URL — find every question, problem, or exercise in the page content above and answer each one directly and completely. Number your answers clearly. Be specific and accurate.`;
+When the user says "answer", "answer this", "answer all", "solve this", or similar — or when they paste a URL — find every question, problem, or exercise in the page content above and answer each one directly and completely. Number your answers clearly. Be specific and accurate. When images are attached showing questions or diagrams, analyze them carefully and solve each problem shown.`;
 
   try {
     const openai = getOpenAI();

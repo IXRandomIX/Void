@@ -376,6 +376,51 @@ export default function App() {
     });
   }
 
+  // ── Scan Tab — explicitly read current tab and send to AI ────────────────
+  async function scanTab() {
+    if (isLoading) return;
+    setIsLoading(true);
+    setIsTyping(true);
+    const page = await fetchPageContent();
+    if (!page || !page.content.trim()) {
+      setIsTyping(false);
+      setIsLoading(false);
+      setMessages(prev => [...prev, {
+        id: Date.now(), role: "assistant" as const,
+        content: "I couldn't read this page — it may be image-based or require login. Try **attaching a screenshot** using the paperclip button instead, and I'll answer from the image.",
+        createdAt: new Date().toISOString(),
+      }]);
+      return;
+    }
+    setPageScanned(true);
+    setTimeout(() => setPageScanned(false), 2500);
+    const userMsg = { id: Date.now(), role: "user" as const, content: "Answer all questions on this page.", createdAt: new Date().toISOString() };
+    setMessages(prev => [...prev, userMsg]);
+    try {
+      const res = await fetch(`${apiBase}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Answer all questions on this page.",
+          url: page.url, pageTitle: page.title, pageContent: page.content, files: [],
+        }),
+      });
+      setIsTyping(false);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown error" }));
+        setMessages(prev => [...prev, { id: Date.now(), role: "assistant" as const, content: `Error: ${err.error || "Failed"}`, createdAt: new Date().toISOString() }]);
+        return;
+      }
+      const data = await res.json();
+      setMessages(prev => [...prev, data.reply]);
+    } catch {
+      setIsTyping(false);
+      setMessages(prev => [...prev, { id: Date.now(), role: "assistant" as const, content: "Could not connect to Void. Please try again.", createdAt: new Date().toISOString() }]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   // ── Chat ──────────────────────────────────────────────────────────────────
   async function addFiles(fileList: FileList | File[]) {
     const results: AttachedFile[] = [];
@@ -599,9 +644,18 @@ export default function App() {
             </div>
           )}
           <div className="input-wrapper">
-            <button className="icon-btn" title="Attach file (Ctrl+Shift+L)" onClick={() => fileInputRef.current?.click()}>
+            <button className="icon-btn" title="Attach file / screenshot (Ctrl+Shift+L)" onClick={() => fileInputRef.current?.click()}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
+            </button>
+            <button className="icon-btn scan-tab-btn" title="Scan this tab and answer questions" onClick={scanTab} disabled={isLoading}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 9V5a2 2 0 0 1 2-2h4"/>
+                <path d="M15 3h4a2 2 0 0 1 2 2v4"/>
+                <path d="M21 15v4a2 2 0 0 1-2 2h-4"/>
+                <path d="M9 21H5a2 2 0 0 1-2-2v-4"/>
+                <circle cx="12" cy="12" r="3"/>
               </svg>
             </button>
             <input ref={fileInputRef} type="file" multiple accept="*/*" style={{ display: "none" }}
@@ -609,7 +663,7 @@ export default function App() {
             <textarea
               ref={textareaRef}
               id="message-input"
-              placeholder="Message Void..."
+              placeholder="Message Void... or paste a URL to scan it"
               rows={1}
               value={inputValue}
               onChange={e => {

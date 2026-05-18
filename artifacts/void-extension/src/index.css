@@ -978,6 +978,19 @@ html, body, #root {
   user-select: none;
 }
 
+/* ── Scan tab button ───────────────────────────────────────────────────── */
+.scan-tab-btn {
+  color: #7c3aed;
+  transition: color 0.15s, background 0.15s;
+}
+.scan-tab-btn:hover {
+  color: #a78bfa !important;
+  background: rgba(124,58,237,0.12) !important;
+}
+.scan-tab-btn:disabled {
+  opacity: 0.3;
+}
+
 /* ── Page scan badge ───────────────────────────────────────────────────── */
 .context-scan-badge {
   font-size: 9px;
