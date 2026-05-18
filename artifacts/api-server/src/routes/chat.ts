@@ -3,6 +3,47 @@ import OpenAI from "openai";
 
 const router = Router();
 
+// ── HTML → plain text extractor ───────────────────────────────────────────
+function htmlToText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s{3,}/g, "\n\n")
+    .trim();
+}
+
+// ── Fetch a URL and return its readable text content ─────────────────────
+async function fetchUrlContent(url: string): Promise<{ content: string; title: string } | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; VoidAI/1.0)" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].trim() : url;
+    const content = htmlToText(html).slice(0, 20000);
+    return { content, title };
+  } catch {
+    return null;
+  }
+}
+
+// ── Detect a URL in text ──────────────────────────────────────────────────
+function extractUrl(text: string): string | null {
+  const match = text.match(/https?:\/\/[^\s"'<>]+/i);
+  return match ? match[0] : null;
+}
+
 interface ChatMessage {
   id: number;
   role: "user" | "assistant";
@@ -84,22 +125,39 @@ router.post("/chat", async (req, res) => {
 
   const userText = message || "Please analyze the attached file(s).";
 
+  // ── Auto-fetch URL if one is detected in the message ─────────────────
+  let resolvedContent = pageContent || null;
+  let resolvedUrl = pageUrl || null;
+  let resolvedTitle = pageTitle || null;
+
+  if (!resolvedContent) {
+    const detectedUrl = extractUrl(userText);
+    if (detectedUrl) {
+      const fetched = await fetchUrlContent(detectedUrl);
+      if (fetched) {
+        resolvedContent = fetched.content;
+        resolvedTitle = fetched.title;
+        resolvedUrl = detectedUrl;
+      }
+    }
+  }
+
   const userMsg: ChatMessage = {
     id: Date.now(),
     role: "user",
     content: userText,
-    url: pageUrl || null,
+    url: resolvedUrl,
     createdAt: new Date().toISOString(),
   };
   chatHistory.push(userMsg);
 
-  const pageContextBlock = pageContent
-    ? `\n\n--- Current page content (${pageTitle || pageUrl || "unknown page"}) ---\n${pageContent.slice(0, 18000)}\n--- End of page content ---`
+  const pageContextBlock = resolvedContent
+    ? `\n\n--- Page content (${resolvedTitle || resolvedUrl || "scanned page"}) ---\n${resolvedContent.slice(0, 18000)}\n--- End of page content ---`
     : "";
 
-  const systemPrompt = `You are Void, a precise and intelligent AI assistant living in the browser sidebar. Be concise, helpful, and respond in the aesthetic of deep space — calm, precise, and knowledgeable. When analyzing files, be thorough and detailed.${pageUrl ? ` The user is currently on: ${pageTitle || pageUrl} (${pageUrl}).` : ""}${pageContextBlock}
+  const systemPrompt = `You are Void, a precise and intelligent AI assistant living in the browser sidebar. Be concise, helpful, and respond in the aesthetic of deep space — calm, precise, and knowledgeable. When analyzing files, be thorough and detailed.${resolvedUrl ? ` The user is currently on: ${resolvedTitle || resolvedUrl} (${resolvedUrl}).` : ""}${pageContextBlock}
 
-When the user says "answer", "answer this", "solve this", or similar, use the page content above to directly answer any questions or problems visible on the page. Be specific and accurate.`;
+When the user says "answer", "answer this", "answer all", "solve this", or similar — or when they paste a URL — find every question, problem, or exercise in the page content above and answer each one directly and completely. Number your answers clearly. Be specific and accurate.`;
 
   try {
     const openai = getOpenAI();

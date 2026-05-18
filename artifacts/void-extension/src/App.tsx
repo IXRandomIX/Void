@@ -359,6 +359,7 @@ export default function App() {
 
   // ── Page content scanner ─────────────────────────────────────────────────
   const [pageScanned, setPageScanned] = useState(false);
+  const [urlScanning, setUrlScanning] = useState(false);
 
   function fetchPageContent(): Promise<{ content: string; title: string; url: string } | null> {
     return new Promise((resolve) => {
@@ -395,9 +396,11 @@ export default function App() {
     setIsTyping(true);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     try {
+      const hasUrl = /https?:\/\/\S+/.test(text);
+      if (hasUrl) setUrlScanning(true);
       const page = await fetchPageContent();
       if (page) setPageScanned(true);
-      setTimeout(() => setPageScanned(false), 2500);
+      setTimeout(() => { setPageScanned(false); setUrlScanning(false); }, 2500);
 
       const res = await fetch(`${apiBase}/api/chat`, {
         method: "POST",
@@ -554,7 +557,8 @@ export default function App() {
             <span className="context-url">{tabUrl ?? liveUrl}</span>
           </div>
           {tabUrl && <span className="context-live-badge">LIVE</span>}
-          {pageScanned && <span className="context-scan-badge">✦ page scanned</span>}
+          {urlScanning && <span className="context-scan-badge" style={{background:"rgba(59,130,246,0.15)",borderColor:"rgba(59,130,246,0.35)",color:"#93c5fd"}}>⟳ scanning url...</span>}
+          {pageScanned && !urlScanning && <span className="context-scan-badge">✦ page scanned</span>}
         </div>
 
         <div id="chat-area" ref={chatAreaRef}>
