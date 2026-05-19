@@ -76,6 +76,7 @@
   },
   "dependencies": {
     "@types/katex": "^0.16.8",
+    "jszip": "^3.10.1",
     "katex": "^0.16.47"
   }
 }

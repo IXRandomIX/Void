@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import katex from "katex";
 import "katex/dist/katex.min.css";
+import JSZip from "jszip";
 
 interface AttachedFile {
   name: string;
@@ -302,6 +303,113 @@ function PipOverlay({
   );
 }
 
+// ── Install extension modal ───────────────────────────────────────────────────
+const EXT_FILES = [
+  "manifest.json", "content.js", "background.js", "icon.svg", "sidepanel.html",
+];
+
+function InstallModal({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState<"guide" | "downloading">("guide");
+  const [done, setDone] = useState(false);
+
+  async function downloadZip() {
+    setStep("downloading");
+    try {
+      const zip = new JSZip();
+      await Promise.all(EXT_FILES.map(async (name) => {
+        const r = await fetch(`/chrome-ext/${name}`);
+        const buf = await r.arrayBuffer();
+        zip.file(name, buf);
+      }));
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "void-ai-extension.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+      setDone(true);
+    } finally {
+      setStep("guide");
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-box install-modal" onClick={e => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose}>×</button>
+        <div className="install-header">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="1.5">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="7.5 4.21 12 6.81 16.5 4.21"/>
+            <polyline points="7.5 19.79 7.5 14.6 3 12"/>
+            <polyline points="21 12 16.5 14.6 16.5 19.79"/>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+            <line x1="12" y1="22.08" x2="12" y2="12"/>
+          </svg>
+          <div>
+            <div className="install-title">Install Void as a Chrome Extension</div>
+            <div className="install-sub">Stays with you across every tab</div>
+          </div>
+        </div>
+
+        <button
+          className={`install-download-btn${done ? " install-done" : ""}`}
+          onClick={downloadZip}
+          disabled={step === "downloading"}
+        >
+          {step === "downloading" ? (
+            <><span className="install-spinner" />Packaging…</>
+          ) : done ? (
+            <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>Downloaded!</>
+          ) : (
+            <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download void-ai-extension.zip</>
+          )}
+        </button>
+
+        <ol className="install-steps">
+          <li>
+            <span className="install-step-num">1</span>
+            <div>
+              <strong>Unzip</strong> the downloaded file into a folder on your computer.
+            </div>
+          </li>
+          <li>
+            <span className="install-step-num">2</span>
+            <div>
+              Open Chrome and go to{" "}
+              <code
+                className="install-url"
+                onClick={() => navigator.clipboard.writeText("chrome://extensions")}
+                title="Click to copy"
+              >chrome://extensions</code>
+              {" "}(click to copy).
+            </div>
+          </li>
+          <li>
+            <span className="install-step-num">3</span>
+            <div>
+              Toggle <strong>Developer mode</strong> ON in the top-right corner.
+            </div>
+          </li>
+          <li>
+            <span className="install-step-num">4</span>
+            <div>
+              Click <strong>Load unpacked</strong> and select the unzipped folder.
+            </div>
+          </li>
+          <li>
+            <span className="install-step-num">5</span>
+            <div>
+              Done! Click the <strong>Void ✦</strong> puzzle piece in your toolbar to open it.
+            </div>
+          </li>
+        </ol>
+      </div>
+    </div>
+  );
+}
+
 // ── Main app ─────────────────────────────────────────────────────────────────
 export default function App() {
   const apiBase = window.location.origin;
@@ -314,6 +422,7 @@ export default function App() {
   const [isTyping, setIsTyping] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [showInstall, setShowInstall] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [pipInput, setPipInput] = useState("");
   const [suggestions, setSuggestions] = useState<{ text: string; category: string }[]>([]);
@@ -722,6 +831,13 @@ export default function App() {
         <div id="header">
           <div id="logo"><div className="logo-dot" />VOID</div>
           <div className="header-actions">
+            <button className="icon-btn install-ext-btn" title="Install as Chrome Extension" onClick={() => setShowInstall(true)}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                <line x1="12" y1="22.08" x2="12" y2="12"/>
+              </svg>
+            </button>
             <button className="icon-btn" title="Settings" onClick={() => setShowSettings(true)}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="3"/>
@@ -866,6 +982,8 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {showInstall && <InstallModal onClose={() => setShowInstall(false)} />}
 
         {showSettings && (
           <div id="settings-panel" className="active">
